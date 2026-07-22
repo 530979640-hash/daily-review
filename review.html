@@ -1,0 +1,258 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日复盘 · 主力行为学体系</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#0a0e17;color:#e0e6ed;min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:16px 20px}
+.header{text-align:center;padding:20px 0;border-bottom:1px solid #1e2a45;margin-bottom:20px}
+.header h1{font-size:24px;background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .sub{font-size:13px;color:#64748b;margin-top:4px}
+.header .time{font-size:12px;color:#475569;margin-top:2px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+.card{background:linear-gradient(145deg,#111827,#0d1525);border:1px solid #1e2a45;border-radius:12px;padding:16px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid #1a2540}
+.badge{font-size:10px;background:#1e2a45;padding:2px 10px;border-radius:20px;color:#94a3b8;margin-left:auto}
+.label{font-size:11px;color:#64748b;margin-bottom:4px}
+.val{font-size:20px;font-weight:700}
+.val.up{color:#ef4444}.val.down{color:#22c55e}.val.warn{color:#f59e0b}
+.val-sm{font-size:14px;color:#94a3b8}
+.phase-tag{display:inline-block;padding:4px 12px;border-radius:6px;font-size:13px;font-weight:600;margin:4px 0}
+.phase-tag.bull{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+.phase-tag.bear{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.25)}
+.phase-tag.neutral{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.25)}
+.signal-bar{height:20px;border-radius:6px;background:linear-gradient(90deg,#22c55e,#f59e0b,#ef4444);position:relative;margin:8px 0}
+.signal-dot{position:absolute;top:-3px;width:10px;height:26px;background:#fff;border-radius:3px;transition:left .5s}
+.summary-box{padding:12px 16px;background:#0a0e17;border-radius:8px;border-left:3px solid #f59e0b;font-size:13px;line-height:1.7;color:#94a3b8;margin-bottom:8px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px;color:#64748b;font-weight:500;border-bottom:1px solid #1a2540}
+td{padding:8px;border-bottom:1px solid #1a2540;color:#94a3b8}
+.footer{text-align:center;padding:16px 0;font-size:11px;color:#475569;border-top:1px solid #1e2a45;margin-top:20px}
+.loading{text-align:center;padding:60px;color:#475569;font-size:14px}
+.loading .spinner{display:inline-block;width:24px;height:24px;border:3px solid #1e2a45;border-top-color:#f59e0b;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{text-align:center;padding:40px;color:#ef4444}
+.refresh-btn{background:#1e2a45;border:none;border-radius:8px;color:#94a3b8;padding:8px 20px;cursor:pointer;font-size:13px;transition:all .2s}
+.refresh-btn:hover{background:#2d3a5a;color:#f59e0b}
+.refresh-btn:disabled{opacity:.5;cursor:default}
+</style>
+</head>
+<body>
+<div class=container>
+<div class=header>
+<div style="text-align:left;margin-bottom:10px">
+<a href="/index.html" style="display:inline-flex;align-items:center;gap:6px;background:#1e2a45;border:none;border-radius:8px;color:#94a3b8;padding:8px 18px;cursor:pointer;font-size:13px;text-decoration:none;transition:all .2s" onmouseover="this.style.color='#f59e0b';this.style.background='#2d3a5a'" onmouseout="this.style.color='#94a3b8';this.style.background='#1e2a45'">← 返回首页</a>
+</div>
+<h1>📋 每日复盘报告</h1>
+<div class=sub>基于主力行为学（杨宁）分析体系 · 自动生成</div>
+<div class=time id=reportTime>加载中...</div>
+</div>
+<div id=content><div class=loading><div class=spinner></div><br>正在采集市场数据并生成复盘...</div></div>
+<div class=footer>⚠️ 数据来源: 东方财富 API · 腾讯财经 · 所有分析仅供参考，不构成投资建议</div>
+</div>
+
+<script>
+async function loadReview() {
+  const ct = document.getElementById('content');
+  const rt = document.getElementById('reportTime');
+  try {
+    const resp = await fetch('/api/daily-review');
+    const d = await resp.json();
+    if (d.error) { ct.innerHTML = '<div class=error-msg>数据获取失败: ' + d.error + '</div>'; return; }
+    
+    rt.innerHTML = '📅 ' + d.date + ' | 生成时间: ' + new Date(d.generatedAt).toLocaleTimeString('zh-CN') + ' | 状态: ' + d.marketPhase;
+    
+    const idxList = [
+      {key:'sh',name:'上证指数'},{key:'sz',name:'深证成指'},{key:'cy',name:'创业板指'},
+      {key:'hs300',name:'沪深300'},{key:'sz50',name:'上证50'},{key:'zz500',name:'中证500'},
+      {key:'zz1000',name:'中证1000'},{key:'kc50',name:'科创50'},{key:'sz180',name:'上证180'},
+      {key:'sz100',name:'深证100'}
+    ];
+    const sh = d.indices.sh;
+    const sz = d.indices.sz;
+    const cy = d.indices.cy;
+    const hs = d.indices.hs300;
+    
+    let html = '';
+    
+    // 所有指数卡片（含预测信号）
+    html += '<div style=display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px>';
+    idxList.forEach(function(item) {
+      var idx = d.indices[item.key];
+      if (!idx) return;
+      var up = idx.changePct >= 0;
+      var pred = d.predictions && d.predictions[item.key];
+      var signalStr = pred ? pred.signalStrength : '--';
+      html += '<div class=card style=text-align:center>' +
+        '<div class=label>' + item.name + '</div>' +
+        '<div class="val ' + (up ? 'up' : 'down') + '">' + (idx.price || 0).toFixed(2) + '</div>' +
+        '<div style=font-size:13px;margin-top:2px;color:' + (up ? '#ef4444' : '#22c55e') + '>' +
+        (up ? '+' : '') + (idx.changePct || 0).toFixed(2) + '%</div>' +
+        '<div style=font-size:10px;color:#64748b;margin-top:2px>' + signalStr + '</div></div>';
+    });
+    html += '</div>';
+    
+    // 市场阶段 + 情绪
+    html += '<div class=grid-2>';
+    html += '<div class=card><div class=card-title>📊 市场阶段定位 <span class=badge>杨宁体系</span></div>';
+    if (d.analysis.phase) {
+      const isBull = d.analysis.phase.includes('强势') || d.analysis.phase.includes('偏多');
+      const isBear = d.analysis.phase.includes('下跌') || d.analysis.phase.includes('偏空');
+      html += '<div class="phase-tag ' + (isBull ? 'bull' : isBear ? 'bear' : 'neutral') + '">' + d.analysis.phase + '</div>';
+    }
+    html += '<div style=margin-top:12px><div class=label>关键点位</div>' +
+      '<div style=display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px>' +
+      '<div style=text-align:center;padding:8px;background:#0a0e17;border-radius:6px><div class=label>压力位</div><div class=val-sm style=color:#ef4444>' + (d.analysis.keyLevels?.resist || '--') + '</div></div>' +
+      '<div style=text-align:center;padding:8px;background:#0a0e17;border-radius:6px><div class=label>当前位置</div><div class=val-sm style=color:#f59e0b>' + (d.analysis.keyLevels?.current || '--') + '</div></div>' +
+      '<div style=text-align:center;padding:8px;background:#0a0e17;border-radius:6px><div class=label>支撑位</div><div class=val-sm style=color:#22c55e>' + (d.analysis.keyLevels?.support || '--') + '</div></div></div></div></div>';
+    
+    html += '<div class=card><div class=card-title>🌡️ 市场情绪 <span class=badge>核心指标</span></div>';
+    html += '<div class="phase-tag neutral" style=font-size:15px>' + (d.analysis.sentiment || '--') + '</div>';
+    html += '<div class=signal-bar style=margin-top:12px><div class=signal-dot style=left:' + (sh ? Math.min(Math.max((sh.changePct + 3) / 6 * 100, 5), 95) : 50) + '%></div></div>';
+    html += '<div style=display:flex;justify-content:space-between;font-size:10px;color:#475569;margin-top:4px><span>恐慌 ← </span><span>中性</span><span> → 亢奋</span></div>';
+    html += '<div style=margin-top:12px><div class=label>信号强度</div><div style=font-size:15px;font-weight:600>' + (d.analysis.signalStrength || '--') + '</div></div></div>';
+    html += '</div>';
+    
+    // 黄金一小时
+    
+    // === 技术指标 ===
+    html += '<div class=grid-2 style=margin-bottom:16px>';
+    html += '<div class=card><div class=card-title>📐 技术指标 <span class=badge>MA / MACD / RSI</span></div>';
+    html += '<div style=display:grid;grid-template-columns:1fr 1fr;gap:12px>';
+    html += '<div><div class=label>MA5 / MA10 / MA20</div><div style=font-size:15px;font-weight:600>'
+      + (d.technical?.ma?.ma5 || '--') + ' / ' + (d.technical?.ma?.ma10 || '--') + ' / ' + (d.technical?.ma?.ma20 || '--') + '</div></div>';
+    html += '<div><div class=label>MACD（DIF / DEA / 柱）</div><div style=font-size:15px;font-weight:600>'
+      + (d.technical?.macd?.dif || '--') + ' / ' + (d.technical?.macd?.dea || '--') + ' <span style=color:' + (parseFloat(d.technical?.macd?.histogram) >= 0 ? '#ef4444' : '#22c55e') + '>' + (d.technical?.macd?.histogram || '--') + '</span></div></div>';
+    html += '<div><div class=label>RSI（6日 / 14日）</div><div style=font-size:15px;font-weight:600;display:flex;gap:12px>'
+      + '<span style=color:' + (parseFloat(d.technical?.rsi?.rsi6) > 80 ? '#ef4444' : parseFloat(d.technical?.rsi?.rsi6) < 20 ? '#22c55e' : '#f59e0b') + '>' + (d.technical?.rsi?.rsi6 || '--') + '</span>'
+      + '<span style=color:' + (parseFloat(d.technical?.rsi?.rsi14) > 80 ? '#ef4444' : parseFloat(d.technical?.rsi?.rsi14) < 20 ? '#22c55e' : '#f59e0b') + '>' + (d.technical?.rsi?.rsi14 || '--') + '</span></div></div>';
+    html += '<div><div class=label>成交量（MA5）</div><div style=font-size:15px;font-weight:600;color:#94a3b8>' + (d.technical?.volumeMa5 || '--') + '</div></div>';
+    html += '</div></div>';
+    
+    html += '<div class=card><div class=card-title>📊 KDJ / BOLL <span class=badge>技术参考</span></div>';
+    html += '<div style=display:grid;grid-template-columns:1fr 1fr;gap:12px>';
+    // KDJ
+    var kVal = parseFloat(d.technical?.kdj?.k), dVal = parseFloat(d.technical?.kdj?.d), jVal = parseFloat(d.technical?.kdj?.j);
+    var kdjColor = jVal > 100 ? '#ef4444' : jVal < 0 ? '#22c55e' : '#f59e0b';
+    html += '<div><div class=label>KDJ（K / D / J）</div><div style=font-size:15px;font-weight:600>'
+      + (d.technical?.kdj?.k || '--') + ' / ' + (d.technical?.kdj?.d || '--') + ' <span style=color:' + kdjColor + '>' + (d.technical?.kdj?.j || '--') + '</span></div></div>';
+    // BOLL
+    html += '<div><div class=label>布林带（上 / 中 / 下）</div><div style=font-size:15px;font-weight:600>'
+      + (d.technical?.boll?.upper || '--') + ' / ' + (d.technical?.boll?.middle || '--') + ' / <span style=color:#22c55e>' + (d.technical?.boll?.lower || '--') + '</span></div></div>';
+    html += '</div>';
+    // BOLL宽度提示
+    if (d.technical?.boll?.upper && d.technical?.boll?.lower) {
+      var bollWidth = (parseFloat(d.technical.boll.upper) - parseFloat(d.technical.boll.lower)) / parseFloat(d.technical.boll.middle) * 100;
+      html += '<div style=margin-top:8px;font-size:11px;color:#64748b>布林带宽 ' + bollWidth.toFixed(1) + '%' + (bollWidth < 5 ? '（收窄中，变盘信号）' : bollWidth > 20 ? '（开口扩大，趋势加强）' : '（正常波动）') + '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+    html += '<div class=grid-2>';
+    html += '<div class=card><div class=card-title>🕐 黄金一小时分析 <span class=badge>9:30-10:30</span></div>';
+    html += '<div class=summary-box>' + (d.analysis.goldHour || '数据不足') + '</div>';
+    if (d.volume) html += '<div style=margin-top:8px><div class=label>两市成交额</div><div style=font-size:18px;font-weight:700;color:#f59e0b>' + (d.volume / 1e8).toFixed(0) + ' 亿</div></div>';
+    html += '</div>';
+    
+    html += '<div class=card><div class=card-title>📈 板块排行 <span class=badge>涨幅TOP10</span></div><div class=table-wrap><table>';
+    html += '<thead><tr><th>板块</th><th>涨幅</th><th>最新价</th></tr></thead><tbody>';
+    (d.sectors || []).slice(0, 10).forEach(s => {
+      if (!s.name) return;
+      html += '<tr><td>' + s.name + '</td><td style=color:' + (s.changePct >= 0 ? '#ef4444' : '#22c55e') + '>' + (s.changePct >= 0 ? '+' : '') + s.changePct.toFixed(2) + '%</td><td>' + (s.price || 0).toFixed(2) + '</td></tr>';
+    });
+    html += '</tbody></table></div></div></div>';
+    
+        // 各指数预测
+    if (d.predictions) {
+      var predKeys = Object.keys(d.predictions);
+      if (predKeys.length > 0) {
+        html += '<div class=card style=margin-bottom:16px><div class=card-title>🔮 各指数次日预测 <span class=badge>' + predKeys.length + '个指数</span></div>';
+        predKeys.forEach(function(pk) {
+          var pred = d.predictions[pk];
+          var idxInfo = idxList.find(function(x) { return x.key === pk; });
+          var idxName = idxInfo ? idxInfo.name : pk;
+          if (!pred || !pred.tomorrowOutlook) return;
+          html += '<details style=margin-top:8px' + (pk === 'sh' ? ' open' : '') + '>' +
+            '<summary style=font-size:13px;font-weight:600;cursor:pointer;color:#e0e6ed;padding:4px 0>' +
+            (pk === 'sh' ? '📌 ' : '') + idxName + ' <span style=font-size:11px;color:#64748b;font-weight:400>' + (pred.signalStrength || '') + '</span></summary>' +
+            '<div class=summary-box style=margin-top:6px;font-size:12px>' + pred.tomorrowOutlook + '</div></details>';
+        });
+        html += '</div>';
+      }
+    }
+
+    // 综合总结 + 明日展望
+    html += '<div class=card style=margin-bottom:16px><div class=card-title>📝 综合复盘 <span class=badge>杨宁体系分析</span></div>';
+    if (d.analysis.summary) html += '<div class=summary-box>' + d.analysis.summary + '</div>';
+    html += '<div class=card-title style=margin-top:16px>🎯 明日预判</div>';
+    html += '<div class=summary-box style=border-left-color:#ef4444>' + (d.analysis.tomorrowOutlook || '数据不足') + '</div></div>';
+    
+    // 全部板块表
+    if (d.sectors && d.sectors.length) {
+      html += '<div class=card style=margin-bottom:16px><div class=card-title>📊 全板块表现 <span class=badge>' + d.sectors.length + '个</span></div><div class=table-wrap>';
+      html += '<table><thead><tr><th>#</th><th>板块</th><th>涨幅</th><th>涨跌</th><th>最新价</th></tr></thead><tbody>';
+      d.sectors.forEach((s, i) => {
+        if (!s.name) return;
+        html += '<tr><td>' + (i+1) + '</td><td>' + s.name + '</td><td style=color:' + (s.changePct >= 0 ? '#ef4444' : '#22c55e') + '>' + (s.changePct >= 0 ? '+' : '') + s.changePct.toFixed(2) + '%</td>' +
+          '<td style=color:' + (s.change >= 0 ? '#ef4444' : '#22c55e') + '>' + (s.change || 0).toFixed(2) + '</td><td>' + (s.price || 0).toFixed(2) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+    
+    
+    // === 近5-10日走势 ===
+    if (d.trend && d.trend.last10 && d.trend.last10.length) {
+      html += '<div class=card style=margin-bottom:16px><div class=card-title>📈 近5-10日走势 <span class=badge>趋势参考</span></div>';
+      html += '<div style=display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap>';
+      html += '<div><span class=label>趋势方向</span><div style=font-size:16px;font-weight:600>' + (d.trend.direction || '--') + '</div></div>';
+      html += '<div><span class=label>近5日累计</span><div style=font-size:16px;font-weight:600;color:' + (d.trend.cumulative5 && d.trend.cumulative5.indexOf('+') >= 0 ? '#ef4444' : '#22c55e') + '>' + (d.trend.cumulative5 || '--') + '</div></div>';
+      html += '<div><span class=label>近10日累计</span><div style=font-size:16px;font-weight:600;color:' + (d.trend.cumulative10 && d.trend.cumulative10.indexOf('+') >= 0 ? '#ef4444' : '#22c55e') + '>' + (d.trend.cumulative10 || '--') + '</div></div>';
+      html += '<div><span class=label>连涨/连跌</span><div style=font-size:16px;font-weight:600;color:#f59e0b>' + (d.trend.consecutiveDays || 0) + '天</div></div>';
+      html += '</div>';
+      html += '<div class=table-wrap><table><thead><tr><th>日期</th><th>收盘价</th><th>涨跌幅</th></tr></thead><tbody>';
+      d.trend.last10.forEach(function(k) {
+        var isUp = parseFloat(k.changePct) >= 0;
+        html += '<tr><td>' + k.date + '</td><td>' + k.close + '</td><td style=color:' + (isUp ? '#ef4444' : '#22c55e') + '>' + (isUp ? '+' : '') + k.changePct + '%</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }    // === 消息面分析 ===
+    if (d.newsAnalysis && d.newsAnalysis.totalHeadlines > 0) {
+      html += '<div class=card style=margin-bottom:16px><div class=card-title>📰 消息面分析 <span class=badge>' + d.newsAnalysis.totalHeadlines + '条</span></div>';
+      html += '<div style=display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap>';
+      html += '<div><span class=label>情绪</span><div style=font-size:16px;font-weight:600>' + (d.newsAnalysis.sentiment || '--') + '</div></div>';
+      html += '<div><span class=label>影响</span><div style=font-size:16px;font-weight:600;color:' + (d.newsAnalysis.score > 0 ? '#ef4444' : d.newsAnalysis.score < 0 ? '#22c55e' : '#94a3b8') + '>' + (d.newsAnalysis.impact || '--') + '</div></div>';
+      html += '<div><span class=label>利好关键词</span><div style=font-size:14px;color:#ef4444;font-weight:600>' + (d.newsAnalysis.keywords?.positive || '--') + '</div></div>';
+      html += '<div><span class=label>利空关键词</span><div style=font-size:14px;color:#22c55e;font-weight:600>' + (d.newsAnalysis.keywords?.negative || '--') + '</div></div>';
+      html += '</div>';
+      if (d.newsAnalysis.topHeadlines && d.newsAnalysis.topHeadlines.length) {
+        html += '<details style=margin-top:8px><summary style=font-size:12px;color:#64748b;cursor:pointer>查看头条新闻</summary>';
+        html += '<div style=margin-top:8px;max-height:300px;overflow-y:auto>';
+        d.newsAnalysis.topHeadlines.forEach(function(n) {
+          html += '<div style=padding:6px 0;border-bottom:1px solid #1a2540;font-size:12px;color:#94a3b8>' + n.title + '</div>';
+        });
+        html += '</div></details>';
+      }
+      html += '</div>';
+    }
+    
+        ct.innerHTML = html;
+  } catch(e) {
+    ct.innerHTML = '<div class=error-msg>❌ 加载失败: ' + e.message + '<br><br><button class=refresh-btn onclick=loadReview()>重试</button></div>';
+  }
+}
+
+loadReview();
+setInterval(loadReview, 60000);
+</script>
+</body>
+</html>
+
+
+
+
