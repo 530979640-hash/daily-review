@@ -1,0 +1,13 @@
+node_modules/
+review_data/
+.tmp.js
+install_playwright_tmp.js
+*.txt
+ngrok.exe
+start*.ps1
+start*.vbs
+run_tunnel.ps1
+tunnel.bat
+.vscode/
+.DS_Store
+.gitignore
