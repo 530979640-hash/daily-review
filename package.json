@@ -1,0 +1,12 @@
+﻿{
+  "name": "a-stock-data-server",
+  "version": "1.0.0",
+  "description": "A股实时数据服务 - 模拟交易系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
