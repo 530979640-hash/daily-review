@@ -1,61 +1,28 @@
 'use strict';
 const http = require('http');
-const https = require('https');
-const url = require('url');
-const path = require('path');
-const fs = require('fs');
+const PORT = process.env.PORT || 3456;
 
-// Load daily-review first to test if it works
-let dailyReview;
+let dailyReview = null;
+let loadError = null;
+
 try {
   dailyReview = require('./daily-review');
   console.log('daily-review loaded successfully');
 } catch(e) {
-  console.error('Failed to load daily-review:', e.message);
-  console.error(e.stack);
-  process.exit(1);
+  loadError = { message: e.message, stack: e.stack ? e.stack.split('\n').slice(0, 10).join('\n') : 'no stack' };
+  console.error('Failed to load daily-review:', loadError.message);
 }
 
-// Now test the rest of server.js
-const PORT = process.env.PORT || 3456;
-const CACHE_TTL = 15000;
-const cache = new Map();
-function gc(k){const v=cache.get(k);return v&&Date.now()-v.ts<CACHE_TTL?v.data:null;}
-function sc(k,d){cache.set(k,{data:d,ts:Date.now()});}
-
-function fetch(host, p) {
-  return new Promise((resolve, reject) => {
-    const req = https.request({hostname:host,path:p,method:"GET",timeout:10000,
-      headers:{"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    }, res => {
-      const chunks = [];
-      res.on("data",c=>chunks.push(c));
-      res.on("end",()=>{
-        const raw = Buffer.concat(chunks);
-        const {TextDecoder} = require("util");
-        try {
-          const body = new TextDecoder("gbk").decode(raw);
-          resolve({s:res.statusCode,body});
-        } catch(e) {
-          resolve({s:res.statusCode,body:raw.toString("utf8")});
-        }
-      });
-    });
-    req.on("error",reject);
-    req.on("timeout",()=>{req.destroy();reject(new Error("timeout"));});
-    req.end();
-  });
-}
-
-function wj(r,d){r.writeHead(200,{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*"});r.end(JSON.stringify(d));}
-function we(r,m,c){r.writeHead(c||500,{"Content-Type":"application/json; charset=utf-8"});r.end(JSON.stringify({error:m}));}
-
-console.log('Starting server on port ' + PORT);
-const server = http.createServer(async (req, res) => {
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end(JSON.stringify({status: 'ok', message: 'Minimal test server running'}));
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'});
+  res.end(JSON.stringify({
+    status: loadError ? 'error' : 'ok',
+    loadError: loadError,
+    dailyReviewLoaded: dailyReview !== null,
+    hasGenerateFunction: dailyReview && typeof dailyReview.generateDailyReview === 'function'
+  }, null, 2));
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log('OK: Server running on http://localhost:' + PORT);
+  console.log('Diagnostic server running on port ' + PORT);
 });
