@@ -115,9 +115,34 @@ async function loadReview() {
     
     html += '<div class=card><div class=card-title>🌡️ 市场情绪 <span class=badge>核心指标</span></div>';
     html += '<div class="phase-tag neutral" style=font-size:15px>' + (d.analysis.sentiment || '--') + '</div>';
-    html += '<div class=signal-bar style=margin-top:12px><div class=signal-dot style=left:' + (sh ? Math.min(Math.max((sh.changePct + 3) / 6 * 100, 5), 95) : 50) + '%></div></div>';
+    html += '<div class=signal-bar style=margin-top:12px><div class=signal-dot style=left:' + (sh ? Math.min(Math.max((sh.changePct + 3) / 6 * 100, 5), 95) : 50) + '%></div>
+      <div class=card style=margin-top:12px>
+        <div class=card-title>⚖️ 仓位建议 <span class=badge>评分系统</span></div>
+        <div style=display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:8px>
+          <div><div class=label>建议</div><div id=ps-suggestion style=font-size:18px;font-weight:700;color:#f59e0b>--</div></div>
+          <div><div class=label>仓位</div><div id=ps-position style=font-size:16px;font-weight:600>--</div></div>
+          <div><div class=label>评分</div><div id=ps-score style=font-size:16px;font-weight:600;color:#3b82f6>--</div></div>
+          <div style=flex:1><div class=label>策略</div><div id=ps-suitable style=font-size:13px;color:#94a3b8>--</div></div>
+        </div>
+        <div style=margin-top:6px;font-size:11px;color:#475569 id=ps-reason></div>
+      </div></div>';
     html += '<div style=display:flex;justify-content:space-between;font-size:10px;color:#475569;margin-top:4px><span>恐慌 ← </span><span>中性</span><span> → 亢奋</span></div>';
     html += '<div style=margin-top:12px><div class=label>信号强度</div><div style=font-size:15px;font-weight:600>' + (d.analysis.signalStrength || '--') + '</div></div></div>';
+
+      // Render position sizing
+      var psEl = document.getElementById("ps-suggestion");
+      if (psEl && d.analysis && d.analysis.positionSizing) {
+        var ps = d.analysis.positionSizing;
+        document.getElementById("ps-suggestion").textContent = ps.suggestion || "--";
+        document.getElementById("ps-position").textContent = ps.suggestedPosition || "--";
+        document.getElementById("ps-score").textContent = ps.score !== undefined ? ps.score + "/100" : "--";
+        document.getElementById("ps-suitable").textContent = ps.suitable || "--";
+        document.getElementById("ps-reason").textContent = "依据: " + (ps.reason || "无");
+        if (ps.score >= 75) document.getElementById("ps-score").style.color = "#22c55e";
+        else if (ps.score >= 60) document.getElementById("ps-score").style.color = "#3b82f6";
+        else if (ps.score >= 45) document.getElementById("ps-score").style.color = "#f59e0b";
+        else document.getElementById("ps-score").style.color = "#ef4444";
+      }
     html += '</div>';
     
     // 黄金一小时
