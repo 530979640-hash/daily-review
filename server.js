@@ -61,6 +61,23 @@ function parseTencent(text) {
   return results;
 }
 
+
+// Auto-fix daily-review.js on startup (strip BOM, remove stray lines)
+try {
+  const drPath = path.join(__dirname, "daily-review.js");
+  if (fs2.existsSync(drPath)) {
+    let drContent = fs2.readFileSync(drPath, "utf8");
+    let fixed = drContent.replace(String.fromCharCode(65279), "");
+    fixed = fixed.replace(new RegExp("^" + String.fromCharCode(92) + "n[\\r]*$", "m"), "");
+    if (fixed !== drContent) {
+      fs2.writeFileSync(drPath, fixed, "utf8");
+      console.log("Auto-fixed daily-review.js");
+    }
+  }
+} catch(e) {
+  console.log("daily-review.js auto-fix skipped:", e.message);
+}
+
 // Lazy load daily-review - catch any module errors
 let dailyReview = null;
 let drLoadError = null;
