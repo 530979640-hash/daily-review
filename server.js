@@ -62,13 +62,18 @@ function parseTencent(text) {
 }
 
 
-// Auto-fix daily-review.js on startup (strip BOM, remove stray lines)
+// Auto-fix daily-review.js on startup
 try {
-  const drPath = path.join(__dirname, "daily-review.js");
+  var drPath = path.join(__dirname, "daily-review.js");
   if (fs2.existsSync(drPath)) {
-    let drContent = fs2.readFileSync(drPath, "utf8");
-    let fixed = drContent.replace(String.fromCharCode(65279), "");
-    fixed = fixed.replace(new RegExp("^" + String.fromCharCode(92) + "n[\\r]*$", "m"), "");
+    var drContent = fs2.readFileSync(drPath, "utf8");
+    var fixed = drContent;
+    if (fixed.charCodeAt(0) === 0xFEFF) fixed = fixed.substring(1);
+    fixed = fixed.replace(/^\
+[\
+]*$/gm, "");
+    fixed = fixed.replace(/^\\n[\
+]*$/gm, "");
     if (fixed !== drContent) {
       fs2.writeFileSync(drPath, fixed, "utf8");
       console.log("Auto-fixed daily-review.js");
