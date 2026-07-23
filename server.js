@@ -1,11 +1,11 @@
-const http = require('http');
-const https = require('https');
-const url = require('url');
-const path = require('path');
-const fs2 = require('fs');
-
-const PORT = process.env.PORT || 3456;
+const http = require("http");
+const https = require("https");
+const url = require("url");
+const path = require("path");
+const fs2 = require("fs");
+const PORT = process.env.PORT || 8888;
 const CACHE_TTL = 15000;
+
 const cache = new Map();
 function gc(k){const v=cache.get(k);return v&&Date.now()-v.ts<CACHE_TTL?v.data:null;}
 function sc(k,d){cache.set(k,{data:d,ts:Date.now()});}
@@ -13,9 +13,7 @@ function sc(k,d){cache.set(k,{data:d,ts:Date.now()});}
 function fetch(host, p) {
   return new Promise((resolve, reject) => {
     const mod = host.includes('localhost') ? http : https;
-    const req = mod.request({hostname:host,path:p,method:'GET',timeout:10000,
-      headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    }, res => {
+    const req = mod.request({hostname:host,path:p,method:'GET',timeout:10000,headers:{'User-Agent':'Mozilla/5.0'}}, res => {
       const chunks = [];
       res.on('data',c=>chunks.push(c));
       res.on('end',()=>{
@@ -31,18 +29,15 @@ function fetch(host, p) {
   });
 }
 
-function wj(r,d){r.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});r.end(JSON.stringify(d));}
-function we(r,m,c){r.writeHead(c||500,{'Content-Type':'application/json; charset=utf-8'});r.end(JSON.stringify({error:m}));}
-
 function fetchUtf8(host, p) {
   return new Promise((resolve, reject) => {
     const mod = host.includes('localhost') ? http : https;
-    const req = mod.request({hostname:host,path:p,method:'GET',timeout:10000,
-      headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    }, res => {
+    const req = mod.request({hostname:host,path:p,method:'GET',timeout:10000,headers:{'User-Agent':'Mozilla/5.0'}}, res => {
       const chunks = [];
       res.on('data',c=>chunks.push(c));
-      res.on('end',()=>{resolve({s:res.statusCode,body:Buffer.concat(chunks).toString('utf8')});});
+      res.on('end',()=>{
+        resolve({s:res.statusCode,body:Buffer.concat(chunks).toString('utf8')});
+      });
     });
     req.on('error',reject);
     req.on('timeout',()=>{req.destroy();reject(new Error('timeout'));});
@@ -56,7 +51,7 @@ function parseTencent(text) {
   for (const line of lines) {
     const m = line.match(/^v_\w+="(.+)";\s*$/);
     if (!m) continue;
-    results.push(m[1].split('~'));
+    results.push(m[1].split('~'));;
   }
   return results;
 }
@@ -69,11 +64,8 @@ try {
     var drContent = fs2.readFileSync(drPath, "utf8");
     var fixed = drContent;
     if (fixed.charCodeAt(0) === 0xFEFF) fixed = fixed.substring(1);
-    fixed = fixed.replace(/^\
-[\
-]*$/gm, "");
-    fixed = fixed.replace(/^\\n[\
-]*$/gm, "");
+    fixed = fixed.replace(/^\\n$/gm, "");
+    fixed = fixed.replace(/^\n$/gm, "");
     if (fixed !== drContent) {
       fs2.writeFileSync(drPath, fixed, "utf8");
       console.log("Auto-fixed daily-review.js");
@@ -84,6 +76,7 @@ try {
 }
 
 // Lazy load daily-review - catch any module errors
+
 let dailyReview = null;
 let drLoadError = null;
 try {
@@ -102,15 +95,18 @@ const server = http.createServer(async (req, res) => {
   try {
     if (p==='/api/daily-review' && dailyReview) {
       const result = await dailyReview.generateDailyReview();
-      wj(res, result);
+      res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
+      res.end(JSON.stringify(result));
       return;
     }
     if (p==='/api/daily-review') {
-      wj(res, {error:'daily-review module not loaded',loadError:drLoadError});
+      res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
+      res.end(JSON.stringify({error:'daily-review module not loaded',loadError:drLoadError}));
       return;
     }
     if (p==='/api/status') {
-      wj(res, {status:'ok',dailyReviewLoaded:!!dailyReview,loadError:drLoadError,port:PORT});
+      res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
+      res.end(JSON.stringify({status:'ok',dailyReviewLoaded:!!dailyReview,loadError:drLoadError}));
       return;
     }
     // Serve static files
@@ -127,7 +123,10 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(404,{'Content-Type':'text/html; charset=utf-8'});
       res.end('<h1>404</h1>');
     }
-  }catch(e){we(res,e.message);}
+  }catch(e){
+    res.writeHead(500,{'Content-Type':'application/json; charset=utf-8'});
+    res.end(JSON.stringify({error:e.message}));
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
