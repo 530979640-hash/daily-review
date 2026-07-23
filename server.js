@@ -110,7 +110,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     // Serve static files
-    let fp=p==='/'?'/index.html':p;
+    let fp=p==='/'?'/review.html':p;
     fp=path.join(__dirname,fp);
     if(!fp.startsWith(__dirname)){res.writeHead(403);res.end('Forbidden');return;}
     const ext=path.extname(fp);
