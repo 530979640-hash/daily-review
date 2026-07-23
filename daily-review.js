@@ -454,6 +454,93 @@ function computeSignalStrength(chg) {
   else return "\ud83d\udfe2 强烈买入区间";
 }
 
+
+// === 仓位建议计算 ===
+function computePositionSizing(tech, trend, marketPhase, sentiment, chgPct, volume, preClose) {
+  var result = { suggestion: "观望", reason: "", score: 50, suggestedPosition: "0-20%", suitable: "空仓或极轻仓", marketPhase: marketPhase };
+  if (!tech || !trend) return result;
+  var macdHist = parseFloat(tech.macd.histogram) || 0;
+  var dif = parseFloat(tech.macd.dif) || 0;
+  var dea = parseFloat(tech.macd.dea) || 0;
+  var rsi14 = parseFloat(tech.rsi.rsi14) || 50;
+  var kVal = parseFloat(tech.kdj.k) || 50;
+  var dVal = parseFloat(tech.kdj.d) || 50;
+  var jVal = parseFloat(tech.kdj.j) || 50;
+  var bollUpper = parseFloat(tech.boll.upper) || 0;
+  var bollLower = parseFloat(tech.boll.lower) || 0;
+  var bollMid = parseFloat(tech.boll.middle) || 0;
+  var close = preClose || parseFloat(tech.boll.middle) || 0;
+  var ma5 = parseFloat(tech.ma.ma5) || 0;
+  var ma10 = parseFloat(tech.ma.ma10) || 0;
+  var ma20 = parseFloat(tech.ma.ma20) || 0;
+  var volMa5 = parseFloat(tech.volumeMa5) || 0;
+  var trendDir = (trend.direction || "").includes("上升") ? "up" : (trend.direction || "").includes("下降") ? "down" : "side";
+  var consDays = trend.consecutiveDays || 0;
+  var macdBull = macdHist > 0 && dif > dea;
+  var macdBear = macdHist < 0 && dif < dea;
+  var rsiOverbought = rsi14 > 70;
+  var rsiOversold = rsi14 < 30;
+  var kdjOverbought = (kVal > 80 && jVal > 100);
+  var kdjOversold = (kVal < 20 && jVal < 0);
+  var aboveBollUpper = bollUpper > 0 && close >= bollUpper;
+  var belowBollLower = bollLower > 0 && close <= bollLower;
+  var aboveMA5 = ma5 > 0 && close >= ma5;
+  var aboveMA10 = ma10 > 0 && close >= ma10;
+  var aboveMA20 = ma20 > 0 && close >= ma20;
+  var maBull = (ma5 > ma10 && ma10 > ma20);
+  var maBear = (ma5 < ma10 && ma10 < ma20);
+  var score = 50;
+  var reasons = [];
+  if (trendDir === "up") { score += 15; reasons.push("趋势向上"); }
+  else if (trendDir === "down") { score -= 15; reasons.push("趋势向下"); }
+  else reasons.push("趋势震荡");
+  if (consDays >= 3 && trendDir === "up") { score += 5; reasons.push("连涨"+consDays+"日"); }
+  if (consDays >= 3 && trendDir === "down") { score -= 5; reasons.push("连跌"+consDays+"日"); }
+  if (macdBull) { score += 10; reasons.push("MACD金叉"); }
+  else if (macdBear) { score -= 10; reasons.push("MACD死叉"); }
+  if (macdHist > 0 && macdHist > Math.abs(dea)*0.5) { score += 5; reasons.push("MACD柱放量"); }
+  else if (macdHist < 0 && Math.abs(macdHist) > Math.abs(dea)*0.5) { score -= 5; reasons.push("MACD柱放量下跌"); }
+  if (rsiOverbought) { score -= 8; reasons.push("RSI超买"); }
+  else if (rsiOversold) { score += 8; reasons.push("RSI超卖"); }
+  else if (rsi14 > 60) { score += 5; reasons.push("RSI偏强"); }
+  else if (rsi14 < 40) { score -= 5; reasons.push("RSI偏弱"); }
+  if (kdjOverbought) { score -= 8; reasons.push("KDJ超买"); }
+  else if (kdjOversold) { score += 8; reasons.push("KDJ超卖"); }
+  else if (kVal > dVal && jVal > kVal) { score += 5; reasons.push("KDJ多头"); }
+  else if (kVal < dVal && jVal < kVal) { score -= 5; reasons.push("KDJ空头"); }
+  if (aboveBollUpper) { score -= 8; reasons.push("触及布林上轨"); }
+  else if (belowBollLower) { score += 8; reasons.push("触及布林下轨"); }
+  else if (close > 0 && bollMid > 0 && close > bollMid) { score += 3; reasons.push("布林中轨上方"); }
+  if (aboveMA5) score += 5; else score -= 3;
+  if (aboveMA10) score += 5; else score -= 3;
+  if (aboveMA20) score += 5; else score -= 4;
+  if (maBull) { score += 5; reasons.push("均线多头排列"); }
+  else if (maBear) { score -= 5; reasons.push("均线空头排列"); }
+  if (volume > 0 && volMa5 > 0) {
+    var volRatio = volume / volMa5;
+    if (volRatio > 1.5 && trendDir === "up") { score += 8; reasons.push("放量上涨"); }
+    else if (volRatio > 1.5 && trendDir === "down") { score -= 8; reasons.push("放量下跌"); }
+    else if (volRatio < 0.7) reasons.push("缩量");
+  }
+  if (chgPct > 2) { score -= 5; reasons.push("短期涨幅过大"); }
+  else if (chgPct < -2) { score += 5; reasons.push("短期跌幅较大"); }
+  if (sentiment === "偏暖") score += 3;
+  else if (sentiment === "偏冷") score -= 3;
+  if (marketPhase !== "已收盘") score -= 5;
+  score = Math.max(0, Math.min(100, score));
+  var suggestion, suggestedPosition, suitable;
+  if (score >= 75) { suggestion = "重仓"; suggestedPosition = "70-100%"; suitable = "趋势明确向上，可积极加仓"; }
+  else if (score >= 60) { suggestion = "中仓"; suggestedPosition = "50-70%"; suitable = "多方占优，可维持中等仓位"; }
+  else if (score >= 45) { suggestion = "轻仓"; suggestedPosition = "30-50%"; suitable = "方向不明，控制仓位为主"; }
+  else if (score >= 30) { suggestion = "极轻仓"; suggestedPosition = "10-30%"; suitable = "偏空信号较多，以防守为主"; }
+  else { suggestion = "空仓"; suggestedPosition = "0-10%"; suitable = "空头信号明确，观望为宜"; }
+  if (marketPhase === "已收盘" && score < 25) { suggestion = "强烈建议空仓"; suitable = "多重空头信号共振，持币观望"; }
+  if (score >= 60 && rsiOversold && kdjOversold) { suggestion = "超跌反弹机会"; suggestedPosition = "30-50%"; suitable = "超卖信号出现，可轻仓博反弹"; }
+  if (score < 40 && (rsiOverbought || kdjOverbought)) { suggestion = "减仓回避"; suitable = "超买信号明显，注意回调风险"; }
+  var reasonStr = reasons.length ? reasons.join("，") : "信号不明显";
+  return { suggestion, reason: reasonStr, score, suggestedPosition, suitable, marketPhase };
+}
+
 // === 主函数：生成每日复盘 ===
 async function generateDailyReview() {
   const now = new Date();
@@ -474,7 +561,8 @@ async function generateDailyReview() {
     analysis: {
       phase: "--", goldHour: "--", sentiment: "--",
       keyLevels: { support: "--", resist: "--", current: "--" },
-      summary: "--", tomorrowOutlook: "--", signalStrength: "--"
+      summary: "--", tomorrowOutlook: "--", signalStrength: "--",
+      positionSizing: { suggestion: "--", reason: "--", score: 0, suggestedPosition: "--", suitable: "--", marketPhase: "--" }
     },
     technical: {
       ma: { ma5: "--", ma10: "--", ma20: "--" },
@@ -594,6 +682,10 @@ async function generateDailyReview() {
       var macdHist = parseFloat(techSH.macd.histogram);
       var rsi14vSH = parseFloat(techSH.rsi.rsi14);
       report.analysis.summary += " | MACD柱" + macdHist.toFixed(2) + " RSI14=" + (rsi14vSH ? rsi14vSH.toFixed(1) : "--");
+
+      
+      // === 仓位建议 ===
+      report.analysis.positionSizing = computePositionSizing(techSH, techSH.trend, report.marketPhase, report.analysis.sentiment, chgSH, report.volume, closeSH);
 
       // Generate predictions for ALL indices
       report.predictions = {};
